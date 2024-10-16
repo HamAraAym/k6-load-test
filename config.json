@@ -1,0 +1,18 @@
+{
+    "baseUrl": "https://dev.api.sportsgravy.com",
+    "users": [
+        { "email": "loadtester@mailinator.com", "password": "Test1234$" },
+        { "email": "nikohope@mailinator.com", "password": "Test1234$" },
+        { "email": "hamidmee@mailinator.com", "password": "Test1234$" },
+        { "email": "lebronjames11@mailinator.com", "password": "Test1234$" },
+        { "email": "jimbeam11@mailinator.com", "password": "Test1234$" },
+        { "email": "pendingparent4@mailinator.com", "password": "Test1234$" },
+        { "email": "testdel@mailinator.com", "password": "Test1234$" }
+    ],
+    "projectID": 123456,
+    "influxdb": {
+        "address": "http://localhost:8086",
+        "database": "k6",
+        "token": "i_MSYy5BgFMHZdKT7flBrUgC4dtEx0-T-Wutl6VvlfSUvOh9aHkEfANay6kstanFUmXK-Ew3r_xwKta1jsUJ3w=="
+    }
+}
