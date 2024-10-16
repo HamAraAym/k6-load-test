@@ -1,6 +1,6 @@
 import http from 'k6/http';
-import { check, sleep } from 'k6';
-import { Rate, Counter } from 'k6/metrics';
+import { check, sleep, group } from 'k6';
+import { Counter, Rate } from 'k6/metrics';
 import { readFileSync } from 'fs';
 
 // Load configuration
@@ -14,39 +14,51 @@ export const signInAttempts = new Counter('sign_in_attempts');
 export const signInSuccesses = new Counter('sign_in_successes');
 export const signInFailures = new Counter('sign_in_failures');
 
-export const teamAttempts = new Counter('team_attempts');
-export const teamSuccesses = new Counter('team_successes');
-export const teamFailures = new Counter('team_failures');
+export const teamGetAttempts = new Counter('team_get_attempts');
+export const teamGetSuccesses = new Counter('team_get_successes');
+export const teamGetFailures = new Counter('team_get_failures');
+export const teamPostAttempts = new Counter('team_post_attempts');
+export const teamPostSuccesses = new Counter('team_post_successes');
+export const teamPostFailures = new Counter('team_post_failures');
 
-export const trainingProgramAttempts = new Counter('training_program_attempts');
-export const trainingProgramSuccesses = new Counter('training_program_successes');
-export const trainingProgramFailures = new Counter('training_program_failures');
+export const trainingProgramGetAttempts = new Counter('training_program_get_attempts');
+export const trainingProgramGetSuccesses = new Counter('training_program_get_successes');
+export const trainingProgramGetFailures = new Counter('training_program_get_failures');
+export const trainingProgramPostAttempts = new Counter('training_program_post_attempts');
+export const trainingProgramPostSuccesses = new Counter('training_program_post_successes');
+export const trainingProgramPostFailures = new Counter('training_program_post_failures');
 
-export const cannedMessageAttempts = new Counter('canned_message_attempts');
-export const cannedMessageSuccesses = new Counter('canned_message_successes');
-export const cannedMessageFailures = new Counter('canned_message_failures');
+export const cannedMessageGetAttempts = new Counter('canned_message_get_attempts');
+export const cannedMessageGetSuccesses = new Counter('canned_message_get_successes');
+export const cannedMessageGetFailures = new Counter('canned_message_get_failures');
+export const cannedMessagePostAttempts = new Counter('canned_message_post_attempts');
+export const cannedMessagePostSuccesses = new Counter('canned_message_post_successes');
+export const cannedMessagePostFailures = new Counter('canned_message_post_failures');
 
+export const feedGetAttempts = new Counter('feed_get_attempts');
+export const feedGetSuccesses = new Counter('feed_get_successes');
+export const feedGetFailures = new Counter('feed_get_failures');
 export const longPostAttempts = new Counter('long_post_attempts');
 export const longPostSuccesses = new Counter('long_post_successes');
 export const longPostFailures = new Counter('long_post_failures');
 
 // Options for k6 including stages and pushing metrics to InfluxDB
 export let options = {
-    vus: 1, // One virtual user to ensure sequential execution
-    duration: '5m', // Total duration of the test
+    vus: 7, // Simulate 7 concurrent users
+    duration: '3m', // Total duration of the test
     thresholds: {
         http_req_duration: ['p(95)<5000'], // 95% of requests must complete below 5000ms
-        errors: ['rate<0.01'], // Error rate should be less than 1%
+        errors: ['rate<0.01'],             // Error rate should be less than 1%
     },
     ext: {
         loadimpact: {
-            projectID: config.projectID, // Load project ID from config
+            projectID: config.projectID,
             distribution: {
                 'development': {
                     type: 'influxdb',
                     address: config.influxdb.address,
                     database: config.influxdb.database,
-                    token: config.influxdb.token, // Load token from config
+                    token: config.influxdb.token,
                     tags: { environment: 'development' },
                 }
             }
@@ -55,32 +67,13 @@ export let options = {
 };
 
 const BASE_URL = config.baseUrl; // Load base URL from config
-const users = config.users; // Array of user credentials
 
-// Function to simulate browsing by making more GET requests
-function browseApp(token) {
-    // Make GET requests for various parts of the app
-    const res1 = http.get(`${BASE_URL}/team`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-    });
-    check(res1, { 'team list fetched successfully': (r) => r.status === 200 });
-
-    const res2 = http.get(`${BASE_URL}/training-program`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-    });
-    check(res2, { 'training programs fetched successfully': (r) => r.status === 200 });
-
-    sleep(3); // Simulate time spent reading content
-
-    const res3 = http.get(`${BASE_URL}/post`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-    });
-    check(res3, { 'posts fetched successfully': (r) => r.status === 200 });
-}
+// Array of user credentials
+const users = config.users;
 
 // Function to sign in and return the access token
 function signIn(email, password) {
-    signInAttempts.add(1); // Increment sign-in attempts counter
+    signInAttempts.add(1);
 
     let loginRes = http.post(`${BASE_URL}/auth/sign-in`, JSON.stringify({
         email: email,
@@ -94,34 +87,40 @@ function signIn(email, password) {
     });
 
     if (success) {
-        signInSuccesses.add(1); // Increment sign-in successes counter
+        signInSuccesses.add(1);
         return loginRes.json('AuthenticationResult.IdToken');
     } else {
-        signInFailures.add(1); // Increment sign-in failures counter
-        console.log('Sign-in failed. Response:', loginRes.body);
+        signInFailures.add(1);
+        console.log(`Sign-in failed for ${email}. Response: ${loginRes.body}`);
         errorRate.add(1);
         return null;
     }
 }
 
-// Function to perform all POST operations with pauses in between
-function createData(token) {
-    createTeam(token);
-    sleep(2); // Simulate user waiting time between requests
+// Function to GET team
+function getTeam(token) {
+    teamGetAttempts.add(1);
 
-    createTrainingProgram(token);
-    sleep(2);
+    let res = http.get(`${BASE_URL}/team`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+    });
 
-    createCannedMessage(token);
-    sleep(2);
+    let success = check(res, {
+        'team retrieved successfully': (resp) => resp.status === 200,
+    });
 
-    createLongPost(token);
-    sleep(2);
+    if (success) {
+        teamGetSuccesses.add(1);
+    } else {
+        teamGetFailures.add(1);
+        console.log('GET team failed. Status:', res.status, 'Response:', res.body);
+        errorRate.add(1);
+    }
 }
 
 // Function to create a team
 function createTeam(token) {
-    teamAttempts.add(1); // Increment attempts counter
+    teamPostAttempts.add(1);
 
     let payload = JSON.stringify({
         name: "Load Test Team",
@@ -141,17 +140,38 @@ function createTeam(token) {
     });
 
     if (res.status === 201) {
-        teamSuccesses.add(1); // Increment successes counter
+        teamPostSuccesses.add(1);
     } else {
-        teamFailures.add(1); // Increment failures counter
-        console.log('Team creation failed. Status:', res.status, 'Response:', res.body);
+        teamPostFailures.add(1);
+        console.log('POST team failed. Status:', res.status, 'Response:', res.body);
+        errorRate.add(1);
+    }
+}
+
+// Function to GET training program
+function getTrainingProgram(token) {
+    trainingProgramGetAttempts.add(1);
+
+    let res = http.get(`${BASE_URL}/training-program`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+    });
+
+    let success = check(res, {
+        'training program retrieved successfully': (resp) => resp.status === 200,
+    });
+
+    if (success) {
+        trainingProgramGetSuccesses.add(1);
+    } else {
+        trainingProgramGetFailures.add(1);
+        console.log('GET training program failed. Status:', res.status, 'Response:', res.body);
         errorRate.add(1);
     }
 }
 
 // Function to create a training program
 function createTrainingProgram(token) {
-    trainingProgramAttempts.add(1); // Increment attempts counter
+    trainingProgramPostAttempts.add(1);
 
     let payload = JSON.stringify({
         name: "Load Test Program",
@@ -171,17 +191,38 @@ function createTrainingProgram(token) {
     });
 
     if (res.status === 201) {
-        trainingProgramSuccesses.add(1); // Increment successes counter
+        trainingProgramPostSuccesses.add(1);
     } else {
-        trainingProgramFailures.add(1); // Increment failures counter
-        console.log('Training program creation failed. Status:', res.status, 'Response:', res.body);
+        trainingProgramPostFailures.add(1);
+        console.log('POST training program failed. Status:', res.status, 'Response:', res.body);
+        errorRate.add(1);
+    }
+}
+
+// Function to GET canned messages
+function getCannedMessages(token) {
+    cannedMessageGetAttempts.add(1);
+
+    let res = http.get(`${BASE_URL}/canned-message`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+    });
+
+    let success = check(res, {
+        'canned messages retrieved successfully': (resp) => resp.status === 200,
+    });
+
+    if (success) {
+        cannedMessageGetSuccesses.add(1);
+    } else {
+        cannedMessageGetFailures.add(1);
+        console.log('GET canned messages failed. Status:', res.status, 'Response:', res.body);
         errorRate.add(1);
     }
 }
 
 // Function to create a canned message
 function createCannedMessage(token) {
-    cannedMessageAttempts.add(1); // Increment attempts counter
+    cannedMessagePostAttempts.add(1);
 
     let payload = JSON.stringify({
         title: "Load Test Can",
@@ -198,27 +239,48 @@ function createCannedMessage(token) {
     });
 
     if (res.status === 201) {
-        cannedMessageSuccesses.add(1); // Increment successes counter
+        cannedMessagePostSuccesses.add(1);
     } else {
-        cannedMessageFailures.add(1); // Increment failures counter
-        console.log('Canned message creation failed. Status:', res.status, 'Response:', res.body);
+        cannedMessagePostFailures.add(1);
+        console.log('POST canned message failed. Status:', res.status, 'Response:', res.body);
         errorRate.add(1);
     }
 }
 
-// Function to post a long post
-function createLongPost(token) {
-    longPostAttempts.add(1); // Increment attempts counter
+// Function to GET feed
+function getFeed(token) {
+    feedGetAttempts.add(1);
 
-    let payload = JSON.stringify({
-        body: "This is a load test long post.",
-        shareTo: [{
-            connectionType: "*",
-            connectionTypeId: "*"
-        }]
+    let res = http.get(`${BASE_URL}/feed`, {
+        headers: { 'Authorization': `Bearer ${token}` },
     });
 
-    let res = http.post(`${BASE_URL}/post`, payload, {
+    let success = check(res, {
+        'feed retrieved successfully': (resp) => resp.status === 200,
+    });
+
+    if (success) {
+        feedGetSuccesses.add(1);
+    } else {
+        feedGetFailures.add(1);
+        console.log('GET feed failed. Status:', res.status, 'Response:', res.body);
+        errorRate.add(1);
+    }
+}
+
+// Function to create a long post
+function createLongPost(token) {
+    longPostAttempts.add(1);
+
+
+
+    let payload = JSON.stringify({
+        content: "This is a load test long post",
+        images: [],
+        tags: []
+    });
+
+    let res = http.post(`${BASE_URL}/feed/long-post`, payload, {
         headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -226,58 +288,44 @@ function createLongPost(token) {
     });
 
     if (res.status === 201) {
-        longPostSuccesses.add(1); // Increment successes counter
+        longPostSuccesses.add(1);
     } else {
-        longPostFailures.add(1); // Increment failures counter
-        console.log('Long post creation failed. Status:', res.status, 'Response:', res.body);
+        longPostFailures.add(1);
+        console.log('POST long post failed. Status:', res.status, 'Response:', res.body);
         errorRate.add(1);
     }
 }
 
 // Main test function
 export default function () {
-    // Iterate over each user
-    for (const user of users) {
-        // Step 1: Sign in and get token
-        let token = signIn(user.email, user.password);
+    let user = users[__VU % users.length];
+    let token = signIn(user.email, user.password);
 
-        // Step 2: Simulate browsing more than creating
-        if (token) {
-            for (let i = 0; i < 5; i++) {
-                browseApp(token); // Perform more GET requests
-                sleep(5); // Simulate user navigating through the app
+    if (token) {
+        // GET and POST Team
+        group('Team Operations', function () {
+            getTeam(token);
+            createTeam(token);
+        });
 
-                createData(token); // Perform POST operations with longer intervals
+        // GET and POST Training Program
+        group('Training Program Operations', function () {
+            getTrainingProgram(token);
+            createTrainingProgram(token);
+        });
 
-                sleep(10); // Simulate a break between interactions
-            }
-        }
+        // GET and POST Canned Messages
+        group('Canned Message Operations', function () {
+            getCannedMessages(token);
+            createCannedMessage(token);
+        });
+
+        // GET Feed and create Long Post
+        group('Feed Operations', function () {
+            getFeed(token);
+            createLongPost(token);
+        });
     }
-}
 
-// Log the results at the end of the test
-export function handleSummary(data) {
-    return {
-        'stdout': `
-        Sign-in attempts: ${signInAttempts.value}
-        Sign-in successes: ${signInSuccesses.value}
-        Sign-in failures: ${signInFailures.value}
-
-        Team creation attempts: ${teamAttempts.value}
-        Team creation successes: ${teamSuccesses.value}
-        Team creation failures: ${teamFailures.value}
-
-        Training program creation attempts: ${trainingProgramAttempts.value}
-        Training program creation successes: ${trainingProgramSuccesses.value}
-        Training program creation failures: ${trainingProgramFailures.value}
-
-        Canned message creation attempts: ${cannedMessageAttempts.value}
-        Canned message creation successes: ${cannedMessageSuccesses.value}
-        Canned message creation failures: ${cannedMessageFailures.value}
-
-        Long post creation attempts: ${longPostAttempts.value}
-        Long post creation successes: ${longPostSuccesses.value}
-        Long post creation failures: ${longPostFailures.value}
-        `,
-    };
+    sleep(1); // Pause for 1 second between requests
 }
