@@ -6,7 +6,11 @@
         { "email": "lebronjames11@mailinator.com", "password": "Test1234$" },
         { "email": "jimbeam11@mailinator.com", "password": "Test1234$" },
         { "email": "pendingparent4@mailinator.com", "password": "Test1234$" },
-        { "email": "testdel@mailinator.com", "password": "Test1234$" }
+        { "email": "testdel@mailinator.com", "password": "Test1234$" },
+        { "email": "joey+test5@jmg.mn", "password": "Test1234$" },
+        { "email": "rob+test@jmg.mn", "password": "Test1234$"},
+        { "email": "joey+wife@jmg.mn", "password": "Test1234$"},
+        { "email": "rob+wife@jmg.mn", "password": "Test1234$"}
     ],
     "projectID": 123456,
     "influxdb": {
