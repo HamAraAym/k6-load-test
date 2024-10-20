@@ -1,10 +1,6 @@
 import http from 'k6/http';
 import { check, sleep, group } from 'k6';
 import { Counter, Rate } from 'k6/metrics';
-import { readFileSync } from 'fs';
-
-// Load configuration
-const config = JSON.parse(readFileSync('config.json'));
 
 // Custom error rate metric
 export const errorRate = new Rate('errors');
@@ -52,13 +48,13 @@ export let options = {
     },
     ext: {
         loadimpact: {
-            projectID: config.projectID,
+            projectID: __ENV.PROJECT_ID,
             distribution: {
                 'development': {
                     type: 'influxdb',
-                    address: config.influxdb.address,
-                    database: config.influxdb.database,
-                    token: config.influxdb.token,
+                    address: __ENV.INFLUXDB_ADDRESS,
+                    database: __ENV.INFLUXDB_DATABASE,
+                    token: __ENV.INFLUXDB_TOKEN,
                     tags: { environment: 'development' },
                 }
             }
@@ -66,10 +62,10 @@ export let options = {
     }
 };
 
-const BASE_URL = config.baseUrl; // Load base URL from config
+const BASE_URL = __ENV.BASE_URL; // Load base URL from environment variables
 
 // Array of user credentials
-const users = config.users;
+const users = JSON.parse(__ENV.USERS);
 
 // Function to sign in and return the access token
 function signIn(email, password) {
@@ -272,12 +268,20 @@ function getFeed(token) {
 function createLongPost(token) {
     longPostAttempts.add(1);
 
-
-
     let payload = JSON.stringify({
-        content: "This is a load test long post",
-        images: [],
-        tags: []
+        body: 'This is a test post',
+        shareTo: [{
+            "connectionType":"*",
+            "connectionTypeId":"*"
+        }],
+        // Uncomment and update the following fields as needed
+        // tags: ['tag1', 'tag2'],
+        // sports: ['Basketball', 'Hockey'],
+        // repostOf: '',
+        // reaction: 'THUMBS_UP', // Updated to a valid value
+        // copiedFromMessageId: '',
+        // mediaIds: ['media1', 'media2'],
+        // organizationId: 'org1',
     });
 
     let res = http.post(`${BASE_URL}/feed/long-post`, payload, {

@@ -1,7 +1,6 @@
 {
     "baseUrl": "https://dev.api.sportsgravy.com",
     "users": [
-        { "email": "loadtester@mailinator.com", "password": "Test1234$" },
         { "email": "nikohope@mailinator.com", "password": "Test1234$" },
         { "email": "hamidmee@mailinator.com", "password": "Test1234$" },
         { "email": "lebronjames11@mailinator.com", "password": "Test1234$" },
