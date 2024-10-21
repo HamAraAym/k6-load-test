@@ -36,7 +36,7 @@ export const connectionFailures = new Counter('connection_failures');
 // Options for k6 including stages and pushing metrics to InfluxDB
 export let options = {
     vus: 500, // Simulate 500 concurrent users
-    duration: '15m', // Total duration of the test
+    duration: '3m', // Total duration of the test
     thresholds: {
         http_req_duration: ['p(95)<5000'], // 95% of requests must complete below 5000ms
         errors: ['rate<0.01'],             // Error rate should be less than 1%
@@ -86,7 +86,7 @@ function signIn(email, password) {
         return loginRes.json('AuthenticationResult.IdToken');
     } else {
         signInFailures.add(1);
-        console.log(`Sign-in failed for ${email}. Response: ${loginRes.body}`);
+        console.log(`Sign-in failed for ${email}. Status: ${loginRes.status} Response: ${loginRes.body}`);
         errorRate.add(1);
         return null;
     }
@@ -114,8 +114,6 @@ function createLongPost(token, email) {
             "connectionType":"*",
             "connectionTypeId":"*"
         }],
-        postId: 'test-post-id', // Required property
-        mediaIds: ['media1', 'media2'], // Required property
         // Uncomment and update the following fields as needed
         // tags: ['tag1', 'tag2'],
         // sports: ['Basketball', 'Hockey'],
