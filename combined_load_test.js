@@ -33,6 +33,14 @@ export const connectionAttempts = new Counter('connection_attempts');
 export const connectionSuccesses = new Counter('connection_successes');
 export const connectionFailures = new Counter('connection_failures');
 
+export const notificationAttempts = new Counter('notification_attempts');
+export const notificationSuccesses = new Counter('notification_successes');
+export const notificationFailures = new Counter('notification_failures');
+
+export const settingAttempts = new Counter('setting_attempts');
+export const settingSuccesses = new Counter('setting_successes');
+export const settingFailures = new Counter('setting_failures');
+
 // Options for k6 including stages and pushing metrics to InfluxDB
 export let options = {
     vus: 500, // Simulate 500 concurrent users
@@ -93,15 +101,25 @@ function signIn(email, password) {
 }
 
 // Function to simulate feed loading
-function loadFeed(email) {
+function loadFeed(token, email) {
     feedLoadAttempts.add(1);
 
-    // Simulate feed loading time
-    sleep(2);
+    let res = http.get(`${BASE_URL}/feed`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+    });
 
-    // Log feed loading success
-    feedLoadSuccesses.add(1);
-    console.log(`User ${email} successfully loaded the feed.`);
+    let success = check(res, {
+        'feed retrieved successfully': (resp) => resp.status === 200,
+    });
+
+    if (success) {
+        feedLoadSuccesses.add(1);
+        console.log(`User ${email} successfully loaded the feed.`);
+    } else {
+        feedLoadFailures.add(1);
+        console.log(`GET feed failed for user ${email}. Status: ${res.status}, Response: ${res.body}`);
+        errorRate.add(1);
+    }
 }
 
 // Function to create a long post
@@ -257,39 +275,79 @@ function getConnections(token, email) {
     }
 }
 
+// Function to get notifications
+function getNotifications(token, email) {
+    notificationAttempts.add(1);
+
+    let res = http.get(`${BASE_URL}/notification`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+    });
+
+    let success = check(res, {
+        'notifications retrieved successfully': (resp) => resp.status === 200,
+    });
+
+    if (success) {
+        notificationSuccesses.add(1);
+        console.log(`User ${email} successfully retrieved notifications.`);
+    } else {
+        notificationFailures.add(1);
+        console.log(`GET notifications failed for user ${email}. Status: ${res.status}, Response: ${res.body}`);
+        errorRate.add(1);
+    }
+}
+
+// Function to get settings
+function getSettings(token, email) {
+    settingAttempts.add(1);
+
+    let res = http.get(`${BASE_URL}/setting`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+    });
+
+    let success = check(res, {
+        'settings retrieved successfully': (resp) => resp.status === 200,
+    });
+
+    if (success) {
+        settingSuccesses.add(1);
+        console.log(`User ${email} successfully retrieved settings.`);
+    } else {
+        settingFailures.add(1);
+        console.log(`GET settings failed for user ${email}. Status: ${res.status}, Response: ${res.body}`);
+        errorRate.add(1);
+    }
+}
+
 // Main test function
 export default function () {
     let user = users[__VU % users.length];
     let token = signIn(user.email, user.password);
 
     if (token) {
-        // Simulate feed loading and create Long Post
-        group('Feed Operations', function () {
-            loadFeed(user.email);
+        // Perform all GET requests after sign-in
+        group('Initial GET Requests', function () {
+            getNotifications(token, user.email);
             sleep(2); // Simulate user delay
-            createLongPost(token, user.email);
-        });
-
-        // Get connections if not already fetched
-        if (!connectionsFetched.get(user.email)) {
+            getSettings(token, user.email);
+            sleep(2); // Simulate user delay
             getConnections(token, user.email);
             sleep(2); // Simulate user delay
-        }
-
-        // Create Team and Training Program only after connections are fetched
-        group('Team and Training Program Operations', function () {
-            if (connectionsFetched.get(user.email)) {
-                sleep(2); // Simulate user delay
-                createTeam(token, user.email);
-                sleep(2); // Simulate user delay
-                createTrainingProgram(token, user.email);
-            }
+            loadFeed(token, user.email);
         });
 
-        // Create Canned Message
-        group('Canned Message Operations', function () {
-            sleep(2); // Simulate user delay
-            createCannedMessage(token, user.email);
+        // Perform all POST requests every 5 seconds
+        group('POST Requests', function () {
+            while (true) {
+                createTeam(token, user.email);
+                sleep(5); // Simulate user delay
+                createTrainingProgram(token, user.email);
+                sleep(5); // Simulate user delay
+                createLongPost(token, user.email);
+                sleep(5); // Simulate user delay
+                createCannedMessage(token, user.email);
+                sleep(5); // Simulate user delay
+            }
         });
     }
 
