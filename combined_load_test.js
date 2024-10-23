@@ -100,7 +100,87 @@ function signIn(email, password) {
     }
 }
 
-// Function to simulate feed loading
+// Function to perform GET requests
+function performGetRequests(token, email) {
+    group('Initial GET Requests', function () {
+        getNotifications(token, email);
+        sleep(2); // Simulate user delay
+        getSettings(token, email);
+        sleep(2); // Simulate user delay
+        getConnections(token, email);
+        sleep(2); // Simulate user delay
+        loadFeed(token, email);
+    });
+}
+
+// Function to get notifications
+function getNotifications(token, email) {
+    notificationAttempts.add(1);
+
+    let res = http.get(`${BASE_URL}/notification`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+    });
+
+    let success = check(res, {
+        'notifications retrieved successfully': (resp) => resp.status === 200,
+    });
+
+    if (success) {
+        notificationSuccesses.add(1);
+        console.log(`User ${email} successfully retrieved notifications.`);
+    } else {
+        notificationFailures.add(1);
+        console.log(`GET notifications failed for user ${email}. Status: ${res.status}, Response: ${res.body}`);
+        errorRate.add(1);
+    }
+}
+
+// Function to get settings
+function getSettings(token, email) {
+    settingAttempts.add(1);
+
+    let res = http.get(`${BASE_URL}/setting`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+    });
+
+    let success = check(res, {
+        'settings retrieved successfully': (resp) => resp.status === 200,
+    });
+
+    if (success) {
+        settingSuccesses.add(1);
+        console.log(`User ${email} successfully retrieved settings.`);
+    } else {
+        settingFailures.add(1);
+        console.log(`GET settings failed for user ${email}. Status: ${res.status}, Response: ${res.body}`);
+        errorRate.add(1);
+    }
+}
+
+// Function to get connections
+function getConnections(token, email) {
+    connectionAttempts.add(1);
+
+    let res = http.get(`${BASE_URL}/connection`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+    });
+
+    let success = check(res, {
+        'connections retrieved successfully': (resp) => resp.status === 200,
+    });
+
+    if (success) {
+        connectionSuccesses.add(1);
+        console.log(`User ${email} successfully retrieved connections.`);
+        connectionsFetched.set(email, true);
+    } else {
+        connectionFailures.add(1);
+        console.log(`GET connections failed for user ${email}. Status: ${res.status}, Response: ${res.body}`);
+        errorRate.add(1);
+    }
+}
+
+// Function to load feed
 function loadFeed(token, email) {
     feedLoadAttempts.add(1);
 
@@ -122,44 +202,18 @@ function loadFeed(token, email) {
     }
 }
 
-// Function to create a long post
-function createLongPost(token, email) {
-    longPostAttempts.add(1);
-
-    let payload = JSON.stringify({
-        body: 'This is a test post',
-        shareTo: [{
-            "connectionType":"*",
-            "connectionTypeId":"*"
-        }],
-        // Uncomment and update the following fields as needed
-        // tags: ['tag1', 'tag2'],
-        // sports: ['Basketball', 'Hockey'],
-        // repostOf: '',
-        // reaction: 'THUMBS_UP', // Updated to a valid value
-        // copiedFromMessageId: '',
-        // organizationId: 'org1',
+// Function to perform POST requests
+function performPostRequests(token, email) {
+    group('POST Requests', function () {
+        createTeam(token, email);
+        sleep(3); // Simulate user delay
+        createTrainingProgram(token, email);
+        sleep(3); // Simulate user delay
+        createLongPost(token, email);
+        sleep(3); // Simulate user delay
+        createCannedMessage(token, email);
+        sleep(3); // Simulate user delay
     });
-
-    let res = http.post(`${BASE_URL}/post`, payload, {
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-        },
-    });
-
-    let success = check(res, {
-        'long post created successfully': (resp) => resp.status === 201,
-    });
-
-    if (success) {
-        longPostSuccesses.add(1);
-        console.log(`User ${email} successfully created a long post.`);
-    } else {
-        longPostFailures.add(1);
-        console.log(`POST long post failed for user ${email}. Status: ${res.status}, Response: ${res.body}`);
-        errorRate.add(1);
-    }
 }
 
 // Function to create a team
@@ -224,6 +278,46 @@ function createTrainingProgram(token, email) {
     }
 }
 
+// Function to create a long post
+function createLongPost(token, email) {
+    longPostAttempts.add(1);
+
+    let payload = JSON.stringify({
+        body: 'This is a test post',
+        shareTo: [{
+            "connectionType":"*",
+            "connectionTypeId":"*"
+        }],
+        // Uncomment and update the following fields as needed
+        // tags: ['tag1', 'tag2'],
+        // sports: ['Basketball', 'Hockey'],
+        // repostOf: '',
+        // reaction: 'THUMBS_UP', // Updated to a valid value
+        // copiedFromMessageId: '',
+        // organizationId: 'org1',
+    });
+
+    let res = http.post(`${BASE_URL}/post`, payload, {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+    });
+
+    let success = check(res, {
+        'long post created successfully': (resp) => resp.status === 201,
+    });
+
+    if (success) {
+        longPostSuccesses.add(1);
+        console.log(`User ${email} successfully created a long post.`);
+    } else {
+        longPostFailures.add(1);
+        console.log(`POST long post failed for user ${email}. Status: ${res.status}, Response: ${res.body}`);
+        errorRate.add(1);
+    }
+}
+
 // Function to create a canned message
 function createCannedMessage(token, email) {
     cannedMessageAttempts.add(1);
@@ -252,73 +346,6 @@ function createCannedMessage(token, email) {
     }
 }
 
-// Function to get connections
-function getConnections(token, email) {
-    connectionAttempts.add(1);
-
-    let res = http.get(`${BASE_URL}/connection`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-    });
-
-    let success = check(res, {
-        'connections retrieved successfully': (resp) => resp.status === 200,
-    });
-
-    if (success) {
-        connectionSuccesses.add(1);
-        console.log(`User ${email} successfully retrieved connections.`);
-        connectionsFetched.set(email, true);
-    } else {
-        connectionFailures.add(1);
-        console.log(`GET connections failed for user ${email}. Status: ${res.status}, Response: ${res.body}`);
-        errorRate.add(1);
-    }
-}
-
-// Function to get notifications
-function getNotifications(token, email) {
-    notificationAttempts.add(1);
-
-    let res = http.get(`${BASE_URL}/notification`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-    });
-
-    let success = check(res, {
-        'notifications retrieved successfully': (resp) => resp.status === 200,
-    });
-
-    if (success) {
-        notificationSuccesses.add(1);
-        console.log(`User ${email} successfully retrieved notifications.`);
-    } else {
-        notificationFailures.add(1);
-        console.log(`GET notifications failed for user ${email}. Status: ${res.status}, Response: ${res.body}`);
-        errorRate.add(1);
-    }
-}
-
-// Function to get settings
-function getSettings(token, email) {
-    settingAttempts.add(1);
-
-    let res = http.get(`${BASE_URL}/setting`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-    });
-
-    let success = check(res, {
-        'settings retrieved successfully': (resp) => resp.status === 200,
-    });
-
-    if (success) {
-        settingSuccesses.add(1);
-        console.log(`User ${email} successfully retrieved settings.`);
-    } else {
-        settingFailures.add(1);
-        console.log(`GET settings failed for user ${email}. Status: ${res.status}, Response: ${res.body}`);
-        errorRate.add(1);
-    }
-}
-
 // Main test function
 export default function () {
     let user = users[__VU % users.length];
@@ -326,29 +353,12 @@ export default function () {
 
     if (token) {
         // Perform all GET requests after sign-in
-        group('Initial GET Requests', function () {
-            getNotifications(token, user.email);
-            sleep(2); // Simulate user delay
-            getSettings(token, user.email);
-            sleep(2); // Simulate user delay
-            getConnections(token, user.email);
-            sleep(2); // Simulate user delay
-            loadFeed(token, user.email);
-        });
+        performGetRequests(token, user.email);
 
-        // Perform all POST requests every 5 seconds
-        group('POST Requests', function () {
-            while (true) {
-                createTeam(token, user.email);
-                sleep(5); // Simulate user delay
-                createTrainingProgram(token, user.email);
-                sleep(5); // Simulate user delay
-                createLongPost(token, user.email);
-                sleep(5); // Simulate user delay
-                createCannedMessage(token, user.email);
-                sleep(5); // Simulate user delay
-            }
-        });
+        // Perform all POST requests every 3 seconds
+        while (true) {
+            performPostRequests(token, user.email);
+        }
     }
 
     sleep(2); // Pause for 2 seconds between requests to simulate user behavior
